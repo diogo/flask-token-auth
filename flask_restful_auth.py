@@ -3,7 +3,7 @@ import md5
 from datetime import datetime, timedelta
 from threading import Timer
 
-class Authorization(object):
+class HTTPTokenAuth(object):
 	def __init__(self, user_table_model, expire_time):
 		self._clients = {}
 		self._users = user_table_model
@@ -36,9 +36,3 @@ class Authorization(object):
 
 	def validate(token, user_agent_header, client_ip):
 		return self._clients.has_key((token, user_agent_header, client_ip))
-
-class Authorize(Resource):
-	pass
-
-class ExpireToken(Resource):
-	pass
