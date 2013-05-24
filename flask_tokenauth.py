@@ -17,33 +17,30 @@ class _token_auth(object):
             self._timer.cancel()
 
     def _expire_tokens(self):
-        for client, time in self._clients.items():
+        for key, value in self._clients.items():
+            time = value['time']
             if (datetime.now() - time) >= timedelta(0, self._expire_time*60):
-                self._clients.pop(client)
+                self._clients.pop(key)
         if self._is_running:
             self._timer = Timer(self._expire_time*60, self._expire_tokens)
             self._timer.start()
 
-    def expire_token(self, token, user_agent_header, client_ip):
-        if self._clients.pop((token, user_agent_header, client_ip), False):
+    def expire_token(self, token, user_agent, remote_addr):
+        if self._clients.pop((token, user_agent_header, remote_addr), False):
             return True
         else:
             return False
 
-    def authorize(self, users, authorization, user_agent, remote_addr):
-        username, password = (authorization['username'], authorization['password'])
-        password = hashlib.md5(password).hexdigest()
-        for user in users:
-            if user[0] == username and user[1] == password:
-                now = datetime.now()
-                token = hashlib.md5(username + password + str(user_agent)
-                            + str(remote_addr) + str(now)).hexdigest()
-                client = (token, user_agent, remote_addr)
-                self._clients[client] = now
-                return token
+    def get_token(self, username, password, user_agent, remote_addr):
+        now = datetime.now()
+        token = unicode(hashlib.md5(username + password + str(user_agent)
+                    + str(remote_addr) + str(now)).hexdigest())
+        client = {'agent': str(user_agent), 'addr': remote_addr, 'time': now}
+        self._clients[token] = client
+        return token
 
-    def validate(self, token, user_agent_header, client_ip):
-        return self._clients.has_key((token, user_agent_header, client_ip))
+    def validate(self, token, user_agent, remote_addr):
+        return self._clients.has_key((token, user_agent_header, remote_addr))
 
 
 try:
@@ -69,10 +66,9 @@ class TokenAuth(object):
             app.teardown_request(self.teardown)
 
     def teardown(self, exception):
-        pass
-    #    ctx = stack.top
-    #    if hasattr(ctx, 'tokenauth'):
-    #        ctx.tokenauth.__exit__()
+        ctx = stack.top
+        if hasattr(ctx, 'tokenauth'):
+            ctx.tokenauth.stop()
 
     @property
     def tokenauth(self):
@@ -80,4 +76,5 @@ class TokenAuth(object):
         if ctx is not None:
             if not hasattr(ctx, 'tokenauth'):
                 ctx.tokenauth = _token_auth(self.app.config['TOKENAUTH_EXPIRE'])
+                print 'oi'
             return ctx.tokenauth
